@@ -219,3 +219,87 @@ def get_select_sequence(self):
     select_list_sequence = [('1', '1'), ('2', '2'), ('3', '3'), ('4', '4'), ('5', '5'), ('6', '6'), ('7', '7'),
                             ('8', '8'), ('9', '9'), ('10', '10')]
     return select_list_sequence
+
+
+# TODO 05:
+#  Refactorizar
+class SaleSubscriptionStage(models.Model):
+    _inherit = 'sale.subscription.stage'
+
+    category = fields.Selection(selection_add=[
+        ('pause', 'Pause')],
+        ondelete={'pause': 'set default'},
+        required=True, default='draft', help="Category of the stage")
+
+
+class SaleSubscriptionStage(models.Model):
+    _inherit = 'sale.subscription.stage'
+
+    category = fields.Selection(selection_add=[
+        ('payu_process', 'PayU.PROCESS')],
+        ondelete={'pause': 'set default'},
+        required=True, default='draft', help="Category of the stage")
+
+
+class SaleSubscriptionStage(models.Model):
+    _inherit = 'sale.subscription.stage'
+
+    category = fields.Selection(selection_add=[
+        ('payment_error', 'Procesando')],
+        ondelete={'pause': 'set default'},
+        required=True, default='draft', help="Category of the stage")
+
+# TODO 06:
+#  Refactorizar
+#  Indicar que se hizo mal en esta función.
+def _post(self, soft=True):
+    # ejecuta el comportamiento del post segun el flujo de la funcion nativa
+    res = super(AccountMove, self)._post(soft)
+    for move in res.filtered(
+        lambda m: m.company_id.country_id.code == 'GT' and m.move_type == 'out_refund'
+    ):
+        if (move.reversed_entry_id
+                and move.reversed_entry_id.l10n_gt_reverse_with_nabn
+                and move.journal_id.code != 'NABN'):
+            raise UserError('En la nota de abono debe utilizar el diario "Nota de Abono"')
+        for line_id in move.line_ids:
+            line_id.ctrl_cta_ctble_nabn()
+            if move.company_id.country_id.code == 'PE' and move.move_type == 'out_invoice' and move.debit_note is False:
+                if move.journal_id.edi_format_ids and move.state == 'draft':
+                    move.update({'edi_state': 'to_send'})
+    self.env.cr.commit()
+
+
+# TODO 07:
+#  Refactorizar
+#  En lugar de ambas funciones ¿Qué funciones usaría?
+def check_user_in_group(self):
+    user = self.env.user
+    flag = False
+    group_names = ['Ajustes', 'Tipo de Pedido']  # Lista de nombres de los dos grupos
+    groups = self.env['res.groups'].search([('name', 'in', group_names)])
+    if user and groups:
+        for group in groups:
+            ls_users = group.users
+            for name in ls_users:
+                if name.name == user.name:
+                    flag = True
+    if flag:
+        return True
+    else:
+        return False
+
+def check_user_in_group_config(self):
+    user = self.env.user
+    flag = False
+    groups = self.env['res.groups'].search([('name', '=', 'Ajustes')], limit=1)
+    if user and groups:
+        for group in groups:
+            ls_users = group.users
+            for name in ls_users:
+                if name.name == user.name:
+                    flag = True
+    if flag:
+        return True
+    else:
+        return False
